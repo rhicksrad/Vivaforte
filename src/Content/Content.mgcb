@@ -1,0 +1,17 @@
+#----------------------------- Global Properties ----------------------------#
+
+/outputDir:bin/Content
+/intermediateDir:obj/Content
+/platform:DesktopGL
+/profile:Reach
+/compress:False
+
+#---------------------------------- Content ---------------------------------#
+
+#begin Fonts/Arcade.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:Fonts/Arcade.spritefont
+
