@@ -1,0 +1,36 @@
+# Build outputs
+bin/
+obj/
+[Bb]uild/
+[Dd]ebug/
+[Rr]elease/
+
+# MonoGame content cache
+.mgcb-cache/
+*.mgcb.tmp
+
+# User-specific
+*.user
+*.suo
+*.userprefs
+*.csproj.user
+*.rsuser
+
+# IDE
+.vs/
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Distribution
+/dist/
+!/dist/.gitkeep
+
+# Logs
+*.log
+
+# Rider
+*.sln.iml
