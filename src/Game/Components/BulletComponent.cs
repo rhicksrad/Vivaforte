@@ -11,4 +11,5 @@ public sealed class BulletComponent
     public float Speed { get; set; } = 800f;
     public float Lifetime { get; set; } = 2.0f;
     public float Age { get; set; }
+    public bool FromPlayer { get; set; } = true;
 }

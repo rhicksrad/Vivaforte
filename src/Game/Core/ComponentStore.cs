@@ -40,6 +40,21 @@ public sealed class ComponentStore
     }
 
     /// <summary>
+    /// Removes all entities and components, resetting the store to its initial state.
+    /// </summary>
+    public void Clear()
+    {
+        _entities.Clear();
+        foreach (var store in _components.Values)
+        {
+            var dictionary = (Dictionary<int, object>)store;
+            dictionary.Clear();
+        }
+
+        _nextEntityId = 1;
+    }
+
+    /// <summary>
     /// Adds or replaces the component on the given entity.
     /// </summary>
     public void Add<T>(Entity entity, T component) where T : class
@@ -99,6 +114,23 @@ public sealed class ComponentStore
         get
         {
             foreach (var id in _entities)
+            {
+                yield return new Entity(id);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enumerates all entities containing the requested components.
+    /// </summary>
+    public IEnumerable<Entity> With<T1>()
+        where T1 : class
+    {
+        var store1 = GetStore<T1>();
+
+        foreach (var id in _entities)
+        {
+            if (store1.ContainsKey(id))
             {
                 yield return new Entity(id);
             }

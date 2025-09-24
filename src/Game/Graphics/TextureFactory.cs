@@ -95,6 +95,94 @@ public static class TextureFactory
     }
 
     /// <summary>
+    /// Builds a compact enemy fighter sprite with accent stripes.
+    /// </summary>
+    public static Texture2D CreateEnemyFighter(GraphicsDevice device)
+    {
+        const int size = 28;
+        var texture = new Texture2D(device, size, size);
+        var data = new Color[size * size];
+        var center = size / 2f;
+
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                var dx = x - center + 0.5f;
+                var dy = y - center + 0.5f;
+                var distance = MathF.Sqrt(dx * dx + dy * dy);
+                var index = y * size + x;
+
+                var color = Color.Transparent;
+                if (distance < 3f)
+                {
+                    color = new Color(0.2f, 0.2f, 0.25f, 1f);
+                }
+                else if (Math.Abs(dx) < 2.5f && Math.Abs(dy) < 9f)
+                {
+                    color = new Color(0.35f, 0.35f, 0.4f, 1f);
+                }
+                else if (dx > -8f && dx < 8f && Math.Abs(dy) < 4f)
+                {
+                    var t = 1f - Math.Abs(dy) / 4f;
+                    color = new Color(0.6f * t, 0.2f * t, 0.1f, 1f);
+                }
+                else if (dx < -6f && Math.Abs(dy) < 6f)
+                {
+                    color = new Color(0.15f, 0.15f, 0.2f, 1f);
+                }
+
+                data[index] = color;
+            }
+        }
+
+        texture.SetData(data);
+        return texture;
+    }
+
+    /// <summary>
+    /// Generates a heavier turret hull sprite for stationary enemies.
+    /// </summary>
+    public static Texture2D CreateEnemyTurret(GraphicsDevice device)
+    {
+        const int size = 36;
+        var texture = new Texture2D(device, size, size);
+        var data = new Color[size * size];
+        var center = size / 2f;
+
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                var dx = x - center + 0.5f;
+                var dy = y - center + 0.5f;
+                var distance = MathF.Sqrt(dx * dx * 0.7f + dy * dy * 1.2f);
+                var index = y * size + x;
+
+                var color = Color.Transparent;
+                if (distance < 4f)
+                {
+                    color = new Color(0.2f, 0.2f, 0.25f, 1f);
+                }
+                else if (distance < 11f)
+                {
+                    var rim = MathHelper.Clamp((distance - 5f) / 6f, 0f, 1f);
+                    color = Color.Lerp(new Color(0.25f, 0.25f, 0.3f, 1f), new Color(0.4f, 0.1f, 0.1f, 1f), rim);
+                }
+                else if (Math.Abs(dy) < 2f && Math.Abs(dx) < 14f)
+                {
+                    color = new Color(0.5f, 0.15f, 0.15f, 1f);
+                }
+
+                data[index] = color;
+            }
+        }
+
+        texture.SetData(data);
+        return texture;
+    }
+
+    /// <summary>
     /// Generates a simple glowing bullet quad.
     /// </summary>
     public static Texture2D CreateBullet(GraphicsDevice device)

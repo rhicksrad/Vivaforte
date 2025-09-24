@@ -67,7 +67,17 @@ public sealed class InputMap
 
     public bool FirePressed => WasKeyJustPressed(Keys.Space) || WasButtonJustPressed(Buttons.A) || WasButtonJustPressed(Buttons.RightShoulder);
 
-    public bool ExitPressed => WasKeyJustPressed(Keys.Escape) || WasButtonJustPressed(Buttons.Back) || WasButtonJustPressed(Buttons.Start);
+    public bool PausePressed => WasKeyJustPressed(Keys.Escape) || WasButtonJustPressed(Buttons.Start);
+
+    public bool MenuConfirmPressed => WasKeyJustPressed(Keys.Enter) || WasButtonJustPressed(Buttons.A);
+
+    public bool ExitPressed => WasKeyJustPressed(Keys.Q) || WasButtonJustPressed(Buttons.Back);
+
+    public bool ToggleCrtPressed => WasKeyJustPressed(Keys.C) || WasButtonJustPressed(Buttons.Y);
+
+    public bool IncreaseCrtPressed => WasKeyJustPressed(Keys.OemCloseBrackets) || WasButtonJustPressed(Buttons.DPadRight);
+
+    public bool DecreaseCrtPressed => WasKeyJustPressed(Keys.OemOpenBrackets) || WasButtonJustPressed(Buttons.DPadLeft);
 
     private static bool IsKeyDown(KeyboardState state, Keys key) => state.IsKeyDown(key);
 

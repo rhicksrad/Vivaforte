@@ -49,6 +49,11 @@ public sealed class ShootingSystem
         _cooldown = _fireInterval;
     }
 
+    public void Reset()
+    {
+        _cooldown = 0f;
+    }
+
     private void SpawnBullet(Vector2 origin)
     {
         var variance = ((float)_rng.NextDouble() - 0.5f) * 0.1f;
@@ -77,7 +82,8 @@ public sealed class ShootingSystem
             Direction = direction,
             Speed = 900f,
             Lifetime = 2.5f,
-            Age = 0f
+            Age = 0f,
+            FromPlayer = true
         };
 
         _store.Add(bulletEntity, bulletTransform);
