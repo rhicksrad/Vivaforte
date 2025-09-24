@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using LifeForce.Components;
 using LifeForce.Core;
 using LifeForce.Graphics;
@@ -11,6 +12,14 @@ namespace LifeForce;
 
 public class Game1 : Game
 {
+    private enum GameState
+    {
+        Start,
+        Playing,
+        Paused,
+        GameOver
+    }
+
     private readonly GraphicsDeviceManager _graphics;
     private SpriteBatch? _spriteBatch;
 
@@ -18,9 +27,20 @@ public class Game1 : Game
     private readonly InputMap _inputMap = new();
     private readonly Random _rng = new(20250214);
 
+    private const float CrtIntensityMin = 0f;
+    private const float CrtIntensityMax = 1.5f;
+    private const float CrtIntensityStep = 0.1f;
+
+    private GameState _state = GameState.Start;
+    private float _stateTimer = 0f;
+
+    private bool _crtEnabled = true;
+    private float _crtIntensity = 0.75f;
+
     private Texture2D? _starTexture;
     private Texture2D? _playerTexture;
     private Texture2D? _bulletTexture;
+    private Texture2D? _pixelTexture;
     private SpriteFont? _font;
     private Effect? _crtEffect;
 
@@ -67,10 +87,15 @@ public class Game1 : Game
         var font = Content.Load<SpriteFont>("Fonts/Arcade");
         _crtEffect = TryLoadEffect("Shaders/CRT");
 
+        _pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
+        _pixelTexture.SetData(new[] { Color.White });
+
         _starTexture = starTexture;
         _playerTexture = playerTexture;
         _bulletTexture = bulletTexture;
         _font = font;
+
+        ApplyCrtSettings();
 
         _parallaxSystem = new ParallaxSystem(starTexture, new Point(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight));
         _inputSystem = new InputSystem();
@@ -79,7 +104,8 @@ public class Game1 : Game
         _bulletSystem = new BulletSystem(_store, new Rectangle(-256, -256, _graphics.PreferredBackBufferWidth + 512, _graphics.PreferredBackBufferHeight + 512));
         _hudSystem = new HUDSystem(font);
 
-        CreatePlayer();
+        ResetWorld();
+        ChangeState(GameState.Start);
     }
 
     private void CreatePlayer()
@@ -125,19 +151,64 @@ public class Game1 : Game
         _fpsDisplay = MathHelper.Lerp(_fpsDisplay, fpsInstant, 0.1f);
 
         _inputMap.Update();
+        HandlePostProcessingInput();
 
-        _parallaxSystem?.Update(dt);
-        _inputSystem?.Update(_store, _inputMap, dt);
-
-        if (_inputSystem?.ExitRequested == true)
+        if (_inputMap.ExitPressed)
         {
             Exit();
             return;
         }
 
-        _movementSystem?.Update(_store, dt);
-        _shootingSystem?.Update(_inputMap, dt);
-        _bulletSystem?.Update(dt);
+        _stateTimer += dt;
+
+        _parallaxSystem?.Update(dt);
+
+        switch (_state)
+        {
+            case GameState.Start:
+                if (_inputMap.MenuConfirmPressed)
+                {
+                    StartNewGame();
+                }
+
+                break;
+            case GameState.Playing:
+                if (_inputMap.PausePressed)
+                {
+                    ChangeState(GameState.Paused);
+                    break;
+                }
+
+                if (UpdateGameplay(dt))
+                {
+                    return;
+                }
+
+                if (!PlayerAlive())
+                {
+                    ChangeState(GameState.GameOver);
+                }
+
+                break;
+            case GameState.Paused:
+                if (_inputMap.PausePressed)
+                {
+                    ChangeState(GameState.Playing);
+                }
+                else if (_inputMap.MenuConfirmPressed)
+                {
+                    StartNewGame();
+                }
+
+                break;
+            case GameState.GameOver:
+                if (_inputMap.MenuConfirmPressed)
+                {
+                    StartNewGame();
+                }
+
+                break;
+        }
 
         base.Update(gameTime);
     }
@@ -151,17 +222,184 @@ public class Game1 : Game
             return;
         }
 
+        ApplyCrtSettings();
         _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null, null, _crtEffect);
 
         _parallaxSystem?.Draw(_spriteBatch);
         _renderSystem.Draw(_store, _spriteBatch);
 
-        var lives = GetPlayerLives();
-        _hudSystem?.Draw(_spriteBatch, _fpsDisplay, lives, _score);
+        if (_state == GameState.Playing)
+        {
+            var lives = GetPlayerLives();
+            _hudSystem?.Draw(_spriteBatch, _fpsDisplay, lives, _score);
+        }
+
+        DrawOverlay(_spriteBatch);
 
         _spriteBatch.End();
 
         base.Draw(gameTime);
+    }
+
+    private bool UpdateGameplay(float dt)
+    {
+        _inputSystem?.Update(_store, _inputMap, dt);
+
+        if (_inputSystem?.ExitRequested == true)
+        {
+            Exit();
+            return true;
+        }
+
+        _movementSystem?.Update(_store, dt);
+        _shootingSystem?.Update(_inputMap, dt);
+        _bulletSystem?.Update(dt);
+        return false;
+    }
+
+    private bool PlayerAlive()
+    {
+        if (_playerEntity.IsValid && _store.TryGet(_playerEntity, out HealthComponent? health) && health is not null)
+        {
+            return health.Current > 0;
+        }
+
+        return false;
+    }
+
+    private void ResetWorld()
+    {
+        _playerEntity = Entity.Invalid;
+        _store.Clear();
+        CreatePlayer();
+        _score = 0;
+        _shootingSystem?.Reset();
+    }
+
+    private void StartNewGame()
+    {
+        ResetWorld();
+        ChangeState(GameState.Playing);
+    }
+
+    private void ChangeState(GameState newState)
+    {
+        _state = newState;
+        _stateTimer = 0f;
+    }
+
+    private void HandlePostProcessingInput()
+    {
+        var changed = false;
+
+        if (_inputMap.ToggleCrtPressed)
+        {
+            _crtEnabled = !_crtEnabled;
+            changed = true;
+        }
+
+        if (_inputMap.IncreaseCrtPressed)
+        {
+            _crtIntensity = MathHelper.Clamp(_crtIntensity + CrtIntensityStep, CrtIntensityMin, CrtIntensityMax);
+            changed = true;
+        }
+
+        if (_inputMap.DecreaseCrtPressed)
+        {
+            _crtIntensity = MathHelper.Clamp(_crtIntensity - CrtIntensityStep, CrtIntensityMin, CrtIntensityMax);
+            changed = true;
+        }
+
+        if (changed)
+        {
+            ApplyCrtSettings();
+        }
+    }
+
+    private void ApplyCrtSettings()
+    {
+        if (_crtEffect is null)
+        {
+            return;
+        }
+
+        var intensity = _crtEnabled ? MathHelper.Clamp(_crtIntensity, CrtIntensityMin, CrtIntensityMax) : 0f;
+        _crtEffect.Parameters["CRTIntensity"]?.SetValue(intensity);
+        _crtEffect.Parameters["TextureSize"]?.SetValue(new Vector2(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight));
+    }
+
+    private void DrawOverlay(SpriteBatch spriteBatch)
+    {
+        if (_font is null || _state == GameState.Playing)
+        {
+            return;
+        }
+
+        var viewport = GraphicsDevice.Viewport;
+
+        if (_pixelTexture is not null)
+        {
+            var alpha = _state == GameState.Start ? 0.55f : 0.7f;
+            var rectangle = new Rectangle(0, 0, viewport.Width, viewport.Height);
+            spriteBatch.Draw(_pixelTexture, rectangle, Color.Black * alpha);
+        }
+
+        var lines = new List<(string text, Color color)>();
+
+        switch (_state)
+        {
+            case GameState.Start:
+                lines.Add(("LIFEFORCE 2025", Color.Cyan));
+                lines.Add(("Press Enter / A to launch", GetPulseColor(Color.White, Color.Cyan)));
+                lines.Add(("Move with WASD or Left Stick · Fire with Space / A", Color.White));
+                lines.Add(("Hold Shift / Right Trigger to focus movement", Color.White));
+                break;
+            case GameState.Paused:
+                lines.Add(("Paused", Color.Cyan));
+                lines.Add(("Press Esc / Start to resume", Color.White));
+                lines.Add(("Press Enter / A to restart from the hangar", Color.White));
+                break;
+            case GameState.GameOver:
+                lines.Add(("Game Over", Color.Crimson));
+                lines.Add(("Press Enter / A to try again", GetPulseColor(Color.White, Color.OrangeRed)));
+                break;
+        }
+
+        var crtStatus = $"CRT {( _crtEnabled ? "ON" : "OFF")} · Intensity {_crtIntensity:0.0}";
+        lines.Add((crtStatus, Color.White));
+        lines.Add(("Press C / Y to toggle CRT · [ / ] or D-Pad Left/Right adjust", Color.White));
+        lines.Add(("Press Q or Back to exit", Color.White));
+
+        var totalHeight = lines.Count * _font.LineSpacing;
+        var startY = viewport.Height * 0.5f - totalHeight * 0.5f;
+        var y = startY;
+
+        foreach (var (text, color) in lines)
+        {
+            DrawCenteredString(spriteBatch, text, y, color);
+            y += _font.LineSpacing;
+        }
+    }
+
+    private Color GetPulseColor(Color baseColor, Color highlight)
+    {
+        var pulse = 0.5f + 0.5f * MathF.Sin(_stateTimer * 4f);
+        return Color.Lerp(baseColor, highlight, pulse);
+    }
+
+    private void DrawCenteredString(SpriteBatch spriteBatch, string text, float y, Color color)
+    {
+        if (_font is null)
+        {
+            return;
+        }
+
+        var viewport = GraphicsDevice.Viewport;
+        var size = _font.MeasureString(text);
+        var position = new Vector2(viewport.Width * 0.5f - size.X * 0.5f, y);
+        var shadowOffset = new Vector2(2f, 2f);
+        spriteBatch.DrawString(_font, text, position + shadowOffset, Color.Black * 0.6f);
+        spriteBatch.DrawString(_font, text, position, color);
     }
 
     private int GetPlayerLives()
@@ -172,7 +410,7 @@ public class Game1 : Game
         }
 
         return 3;
-}
+    }
 
     private Effect? TryLoadEffect(string assetName)
     {

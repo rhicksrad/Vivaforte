@@ -40,6 +40,21 @@ public sealed class ComponentStore
     }
 
     /// <summary>
+    /// Removes all entities and components, resetting the store to its initial state.
+    /// </summary>
+    public void Clear()
+    {
+        _entities.Clear();
+        foreach (var store in _components.Values)
+        {
+            var dictionary = (Dictionary<int, object>)store;
+            dictionary.Clear();
+        }
+
+        _nextEntityId = 1;
+    }
+
+    /// <summary>
     /// Adds or replaces the component on the given entity.
     /// </summary>
     public void Add<T>(Entity entity, T component) where T : class
