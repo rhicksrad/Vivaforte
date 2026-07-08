@@ -1,5 +1,13 @@
 # MVP Roadmap
 
+## NES version (nes/ — VIVAFORTE)
+- [x] Cartridge-ready iNES ROM (NROM-256) built from pure 6502 assembly with ca65/ld65.
+- [x] Scrolling cave terrain, sprite-0 HUD split, wave spawner, Gradius-style power meter, boss loop, APU music/SFX.
+- [x] Headless Mesen 2 test harness (`nes/test/smoke.lua`).
+- [ ] Second stage theme (new terrain segment table + palette swap).
+- [ ] Vertical-scrolling stage variant like Life Force's even-numbered zones (requires horizontal mirroring + row streaming).
+- [ ] Two-player alternating mode.
+
 ## Core Gameplay
 - Implement multiple enemy ship behaviors (basic chaser, turret, and formation flyer).
 - Add enemy wave scheduler with escalating difficulty over time.

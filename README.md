@@ -2,6 +2,21 @@
 
 `lifeforce-2025-mg` is a minimalist MonoGame 2D shooter starter project targeting .NET 8 and Windows DesktopGL. It showcases an entity-component-system (ECS) architecture, deterministic bullet patterns, and a lightweight toolchain suitable for rapid iteration.
 
+## VIVAFORTE — the NES version
+
+The repository also contains **[VIVAFORTE](nes/README.md)**, a complete
+Life Force–style scrolling shooter written in pure 6502 assembly that builds
+to a cartridge-ready iNES ROM (NROM, 32 KB PRG + 8 KB CHR — runs on real
+hardware). Build it with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File nes\build.ps1
+# -> nes/build/vivaforte.nes
+```
+
+See [nes/README.md](nes/README.md) for controls, architecture notes, and the
+headless Mesen test harness.
+
 ## Features
 
 - MonoGame 3.8.2 DesktopGL project configured for 1600x900 rendering
