@@ -76,6 +76,10 @@ main_forever:
     bne :+
     jsr clear_frame
     jmp main_forever
+:   cmp #ST_CREDITS
+    bne :+
+    jsr credits_frame
+    jmp main_forever
 :   jsr gameover_frame
     jmp main_forever
 
@@ -115,7 +119,9 @@ render_on:
     rts
 
 ; ------------------------------------------------------------
-; load_palettes — rendering must be off (or in vblank)
+; load_palettes — rendering must be off (or in vblank).
+; Sprites come from the base set; the background half is
+; re-tinted per stage from the stage6-indexed tables.
 load_palettes:
     bit PPUSTATUS
     lda #$3F
@@ -127,6 +133,22 @@ load_palettes:
     sta PPUDATA
     inx
     cpx #32
+    bne :-
+    ldy stage6
+    lda stage_pal_lo,y
+    sta ptr1
+    lda stage_pal_hi,y
+    sta ptr1+1
+    bit PPUSTATUS
+    lda #$3F
+    sta PPUADDR
+    lda #$00
+    sta PPUADDR
+    ldy #0
+:   lda (ptr1),y
+    sta PPUDATA
+    iny
+    cpy #16
     bne :-
     rts
 

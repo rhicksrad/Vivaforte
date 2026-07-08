@@ -6,7 +6,25 @@
 ;   noise: drums, borrowed for explosions
 ; ============================================================
 
+; ------------------------------------------------------------
+; music_start — A = track (0 horizontal, 1 vertical, 2 credits)
+; ------------------------------------------------------------
 music_start:
+    tay
+    lda track_bass_lo,y
+    sta mus_bass
+    lda track_bass_hi,y
+    sta mus_bass+1
+    lda track_drum_lo,y
+    sta mus_drum
+    lda track_drum_hi,y
+    sta mus_drum+1
+    lda track_mel_lo,y
+    sta mus_mel
+    lda track_mel_hi,y
+    sta mus_mel+1
+    lda track_spd,y
+    sta mus_spd
     lda #1
     sta mus_on
     lda #0
@@ -76,22 +94,24 @@ sound_update:
 :   dec mus_tick
     bmi :+
     rts
-:   lda #6                      ; 7 frames per step
+:   lda mus_spd                 ; frames per step - 1
     sta mus_tick
     ldx mus_step
     inx
-    cpx #32
+    cpx #64
     bcc :+
     ldx #0
 :   stx mus_step
+    txa
+    tay                         ; Y = step for indirect reads
 
     ; triangle bass
-    lda bass_pat,x
+    lda (mus_bass),y
     beq @bassoff
-    tay
-    lda note_lo,y
+    tax
+    lda note_lo,x
     sta TRI_LO
-    lda note_hi,y
+    lda note_hi,x
     sta TRI_HI
     lda #$FF                    ; linear counter max, halt length
     sta TRI_LINEAR
@@ -104,7 +124,7 @@ sound_update:
     ; noise drums (skip while an explosion owns the channel)
     lda noi_sfx
     bne @melody
-    lda drum_pat,x
+    lda (mus_drum),y
     beq @melody
     cmp #1
     bne @hat
@@ -127,13 +147,12 @@ sound_update:
     ; pulse2 melody (skip while a jingle owns the channel)
     lda sq2_sfx
     bne @done
-    ldx mus_step
-    lda mel_pat,x
+    lda (mus_mel),y
     beq @meloff
-    tay
-    lda note_lo,y
+    tax
+    lda note_lo,x
     sta SQ2_LO
-    lda note_hi,y
+    lda note_hi,x
     ora #$08                    ; short length load
     sta SQ2_HI
     lda #$B4                    ; duty 50%, envelope decay 4
@@ -143,8 +162,6 @@ sound_update:
     lda #$30
     sta SQ2_VOL
 @done:
-    rts
-@sustain:
     rts
 
 ; ------------------------------------------------------------

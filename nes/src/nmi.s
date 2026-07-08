@@ -15,12 +15,14 @@ nmi:
     lda #>OAMBUF
     sta OAMDMA
 
-    ; ---- pending nametable column (increment-32 mode) ----
+    ; ---- pending nametable column (h, inc+32) or row (v, inc+1) ----
     lda colpend
     beq @no_col
+    bit PPUSTATUS
+    lda vmode
+    bne @vcol
     lda #CTRL_INC32
     sta PPUCTRL
-    bit PPUSTATUS
     lda colbuf_ah
     sta PPUADDR
     lda colbuf_al
@@ -33,6 +35,21 @@ nmi:
     bne :-
     lda #CTRL_BASE
     sta PPUCTRL
+    jmp @colclr
+@vcol:
+    lda #CTRL_BASE
+    sta PPUCTRL
+    lda colbuf_ah
+    sta PPUADDR
+    lda colbuf_al
+    sta PPUADDR
+    ldx #0
+:   lda colbuf,x
+    sta PPUDATA
+    inx
+    cpx #32
+    bne :-
+@colclr:
     lda #0
     sta colpend
 @no_col:
@@ -59,7 +76,7 @@ nmi:
     lda hudpend
     beq @no_hud
     bit PPUSTATUS
-    lda #$20                    ; score digits at $2007 (row 0, col 7)
+    lda hud_hi                  ; score digits at row 0, col 7
     sta PPUADDR
     lda #$07
     sta PPUADDR
@@ -69,7 +86,7 @@ nmi:
     inx
     cpx #6
     bne :-
-    lda #$20                    ; hi-score digits at $2012 (row 0, col 18)
+    lda hud_hi                  ; hi-score digits at row 0, col 18
     sta PPUADDR
     lda #$12
     sta PPUADDR
@@ -78,7 +95,7 @@ nmi:
     inx
     cpx #12
     bne :-
-    lda #$20                    ; lives digit at $201B (row 0, col 27)
+    lda hud_hi                  ; lives digit at row 0, col 27
     sta PPUADDR
     lda #$1B
     sta PPUADDR
@@ -88,9 +105,9 @@ nmi:
     sta hudpend
 @no_hud:
 
-    ; ---- reset scroll for the HUD strip (always nametable 0, 0/0) ----
+    ; ---- reset scroll for the HUD strip (nametable 0 h / 1 v, 0/0) ----
     bit PPUSTATUS
-    lda #CTRL_BASE
+    lda ctrl_top
     sta PPUCTRL
     lda #0
     sta PPUSCROLL
@@ -134,6 +151,8 @@ nmi:
     jmp @done
 @hit:
     ; we are on scanline ~14; set the game scroll before line 16
+    lda vmode
+    bne @vsplit
     lda scroll16+1
     and #$01
     ora #CTRL_BASE
@@ -142,6 +161,27 @@ nmi:
     sta PPUSCROLL
     lda #0
     sta PPUSCROLL
+    jmp @done
+@vsplit:
+    ; vertical: mid-frame Y scroll needs the full $2006/$2005/$2005/
+    ; $2006 sequence. The first three writes only touch the t latch;
+    ; the final $2006 write loads v immediately, so it is delayed to
+    ; land in hblank of line 15 and the play area starts clean at 16.
+    lda #$00                    ; nametable 0 (Y bits rewritten below)
+    sta PPUADDR
+    lda vscr
+    sta PPUSCROLL               ; coarse + fine Y
+    lda #$00
+    sta PPUSCROLL               ; X = 0
+    lda vscr
+    asl
+    asl
+    and #$E0                    ; (coarse Y & 7) << 5 | coarse X (0)
+    tax
+    ldy #SPLIT_DLY
+:   dey
+    bne :-
+    stx PPUADDR
 @done:
     pla
     tay

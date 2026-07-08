@@ -12,9 +12,9 @@
 local NMI_COUNT = 0x02
 local GSTATE    = 0x04
 local SCROLL16  = 0x0C
-local PL_LIVES  = 0x24
-local SCORE     = 0x2A
-local EN_TYPE   = 0x35A
+local PL_LIVES  = 0x32
+local SCORE     = 0x38
+local EN_TYPE   = 0x36C
 
 local frames = 0
 local held = {}

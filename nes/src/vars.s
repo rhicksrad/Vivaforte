@@ -20,13 +20,29 @@ pad_new:    .res 1              ; newly pressed this frame
 ; -- scroll / terrain generation --
 scroll_sub: .res 1              ; subpixel accumulator
 scroll16:   .res 2              ; total scrolled pixels (16-bit)
-gencol:     .res 2              ; next world column to generate
-cur_top:    .res 1              ; terrain generator current heights
+gencol:     .res 2              ; next world column (h) / row (v) to generate
+cur_top:    .res 1              ; terrain generator current heights (v: left/right widths)
 cur_bot:    .res 1
 seg_ptr:    .res 2              ; pointer into terrain segment table
+seg_base:   .res 2              ; segment table start (for end-of-table wrap)
 seg_left:   .res 1              ; columns left in current segment
 seg_top:    .res 1              ; segment target heights
 seg_bot:    .res 1
+
+; -- stage / vertical mode --
+stage:      .res 1              ; 0-based stage counter
+stage6:     .res 1              ; stage mod NUM_STAGES (data table index)
+stage_req:  .res 1              ; stage selected on the title screen
+vmode:      .res 1              ; 1 = vertical-scrolling stage
+vscr:       .res 1              ; PPU Y scroll for the split (16 - scroll16 mod 240)
+ntrow:      .res 1              ; next nametable row for the vertical row streamer
+hud_hi:     .res 1              ; HUD nametable high byte ($20 hz / $24 vt)
+ctrl_top:   .res 1              ; PPUCTRL value for the HUD strip at frame top
+
+; -- credits sequence --
+cred_ptr:   .res 2              ; next credits line
+cred_timer: .res 1              ; frames until the next line is queued
+cred_row:   .res 1              ; alternating nametable row for lines
 
 ; -- NMI mailbox flags (main sets last, NMI clears) --
 colpend:    .res 1              ; column buffer ready
@@ -81,6 +97,10 @@ boss_dying: .res 1
 mus_on:     .res 1
 mus_tick:   .res 1
 mus_step:   .res 1
+mus_spd:    .res 1              ; frames per step for the current track
+mus_bass:   .res 2              ; current track's pattern pointers
+mus_drum:   .res 2
+mus_mel:    .res 2
 sq1_sfx:    .res 1
 sq2_sfx:    .res 1
 sq2_kind:   .res 1              ; 0 pickup, 1 activate
@@ -162,7 +182,7 @@ ter_top:    .res 64
 ter_bot:    .res 64
 
 ; -- NMI transfer buffers --
-colbuf:     .res 28             ; one nametable column, rows 2..29
+colbuf:     .res 32             ; one nametable column (28, h) or row (32, v)
 colbuf_ah:  .res 1              ; PPU address of column top
 colbuf_al:  .res 1
 strbuf_ah:  .res 1              ; general string transfer

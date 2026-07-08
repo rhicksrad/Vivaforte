@@ -10,19 +10,19 @@ hud_init:
     sta ptr1
     lda #>str_score
     sta ptr1+1
-    lda #$20
+    lda hud_hi                  ; HUD nametable ($20 h / $24 v)
     ldx #$01
     jsr ppu_string
     lda #<str_hi
     sta ptr1
     lda #>str_hi
     sta ptr1+1
-    lda #$20
+    lda hud_hi
     ldx #$10
     jsr ppu_string
     ; ship-stock icon '*' at col 26
     bit PPUSTATUS
-    lda #$20
+    lda hud_hi
     sta PPUADDR
     lda #$1A
     sta PPUADDR
@@ -30,7 +30,7 @@ hud_init:
     sta PPUDATA
     ; divider line across row 1
     bit PPUSTATUS
-    lda #$20
+    lda hud_hi
     sta PPUADDR
     lda #$20
     sta PPUADDR
@@ -302,7 +302,10 @@ draw_player:
     lda plxh
     sta sp_x
     lda #SPT_SHIP_L
-    sta sp_tile
+    ldy vmode
+    beq :+
+    lda #SPT_SHIPU_L            ; vertical: nose-up ship
+:   sta sp_tile
     lda #0
     ldy pl_shield
     beq :+
@@ -360,11 +363,17 @@ draw_pbullets:
     cmp #PBT_BULLET
     beq @bullet
     lda #SPT_MISSILE            ; both missile states
-    ldy #1
+    ldy vmode
+    beq :+
+    lda #SPT_MISS_V
+:   ldy #1
     bne @set
 @laser:
     lda #SPT_LASER
-    ldy #0
+    ldy vmode
+    beq :+
+    lda #SPT_LASER_V
+:   ldy #0
     beq @set
 @bullet:
     lda #SPT_PBUL
@@ -393,10 +402,19 @@ draw_enemies:
     lda en_type,x
     beq @next
     tay
+    lda vmode
+    bne @vt
     lda enemy_tile,y
     sta sp_tile
     lda enemy_attr,y
     sta sp_attr
+    jmp @pos
+@vt:
+    lda enemy_tile_v,y
+    sta sp_tile
+    lda enemy_attr_v,y
+    sta sp_attr
+@pos:
     lda en_xh,x
     sta sp_x
     lda en_yh,x
@@ -427,7 +445,18 @@ draw_boss:
     ldy boss_flash
     beq :+
     lda #1                      ; hit flash palette
-:   sta sp_attr
+    bne @attr
+:   ldy stage6                  ; the Bastion goes gray while closed
+    cpy #4
+    bne @attr
+    ldy boss_t
+    bmi @attr
+    lda #3
+@attr:
+    sta sp_attr
+    ldy stage6
+    lda boss_tile_tbl,y
+    sta tmp5
     ; 8 sprites: 4 columns x 2 rows
     ldx #0                      ; column 0..3
 @col:
@@ -444,7 +473,7 @@ draw_boss:
     asl
     asl                        ; col*4 -> tile offset (2 pairs per column)
     clc
-    adc #SPT_BOSS
+    adc tmp5
     sta sp_tile
     txa
     pha

@@ -4,8 +4,14 @@
 - [x] Cartridge-ready iNES ROM (NROM-256) built from pure 6502 assembly with ca65/ld65.
 - [x] Scrolling cave terrain, sprite-0 HUD split, wave spawner, Gradius-style power meter, boss loop, APU music/SFX.
 - [x] Headless Mesen 2 test harness (`nes/test/smoke.lua`).
-- [ ] Second stage theme (new terrain segment table + palette swap).
-- [ ] Vertical-scrolling stage variant like Life Force's even-numbered zones (requires horizontal mirroring + row streaming).
+- [x] Second stage theme (new terrain segment table + palette swap).
+- [x] Vertical-scrolling stage variant like Life Force's even-numbered zones
+      (done NROM-style: single-nametable Y scroll + row streaming into the
+      16px band hidden behind the HUD; no mirroring change needed).
+- [x] Full six-stage campaign: per-stage themes/terrain/waves and six
+      distinct bosses (Orb, Golem, Kraken, Tetra, Bastion, Overmind).
+- [x] Credits minigame after stage 6 (staff roll + shooting gallery).
+- [x] Three 64-step music tracks (horizontal / vertical / credits).
 - [ ] Two-player alternating mode.
 
 ## Core Gameplay

@@ -28,15 +28,27 @@ player_update:
     sta meter
     sta plxl
     sta plyl
-    lda #$10
+    ldy vmode
+    beq :+
+    lda #$78                    ; vertical: bottom center
+    sta plxh
+    lda #$C8
+    sta plyh
+    bne :++
+:   lda #$10                    ; horizontal: left middle
     sta plxh
     lda #112
     sta plyh
-    lda #120
+:   lda #120
     sta pl_invuln
     ; refill history so options (none now) don't streak later
     ldx #63
-    lda #112
+    lda plxh
+:   sta hist_x,x
+    dex
+    bpl :-
+    ldx #63
+    lda plyh
 :   sta hist_y,x
     dex
     bpl :-
@@ -261,7 +273,10 @@ fire_weapon:
 ; fire_from_point — tmp3/tmp4 = origin x/y
 ; ------------------------------------------------------------
 fire_from_point:
-    lda pl_weapon
+    lda vmode
+    beq :+
+    jmp fire_from_point_v
+:   lda pl_weapon
     cmp #WPN_LASER
     beq @laser
     ; forward shot
@@ -336,11 +351,142 @@ fire_from_point:
     rts
 
 ; ------------------------------------------------------------
+; fire_from_point_v — vertical stage: shots go up from (tmp3,tmp4)
+; ------------------------------------------------------------
+fire_from_point_v:
+    lda pl_weapon
+    cmp #WPN_LASER
+    beq @laser
+    ; forward (up) shot
+    jsr pb_find_free
+    bmi @try_diag
+    lda #PBT_BULLET
+    sta pb_type,x
+    lda tmp3
+    clc
+    adc #4
+    sta pb_xh,x
+    lda tmp4
+    sec
+    sbc #4
+    sta pb_yh,x
+    lda #0
+    sta pb_xl,x
+    sta pb_yl,x
+    sta pb_vxl,x
+    sta pb_vxh,x
+    sta pb_vyl,x
+    lda #$FD                    ; -3 px/frame (up)
+    sta pb_vyh,x
+@try_diag:
+    lda pl_weapon
+    cmp #WPN_DOUBLE
+    bne @out
+    jsr pb_find_free
+    bmi @out
+    lda #PBT_BULLET
+    sta pb_type,x
+    lda tmp3
+    clc
+    adc #8
+    sta pb_xh,x
+    lda tmp4
+    sta pb_yh,x
+    lda #0
+    sta pb_xl,x
+    sta pb_yl,x
+    lda #$40
+    sta pb_vxl,x
+    lda #2                      ; 2.25 px/f right
+    sta pb_vxh,x
+    lda #$C0
+    sta pb_vyl,x
+    lda #$FD                    ; -2.25 px/f (up)
+    sta pb_vyh,x
+@out:
+    rts
+@laser:
+    jsr pb_find_free
+    bmi @out
+    lda #PBT_LASER
+    sta pb_type,x
+    lda tmp3
+    clc
+    adc #4
+    sta pb_xh,x
+    lda tmp4
+    sec
+    sbc #8
+    sta pb_yh,x
+    lda #0
+    sta pb_xl,x
+    sta pb_yl,x
+    sta pb_vxl,x
+    sta pb_vxh,x
+    sta pb_vyl,x
+    lda #$FA                    ; -6 px/frame (up)
+    sta pb_vyh,x
+    rts
+
+; ------------------------------------------------------------
+; fire_missile — Life Force 2-way missiles: one hugs the floor
+; and one the ceiling (horizontal); one to each wall (vertical)
+; ------------------------------------------------------------
 fire_missile:
     jsr pb_find_free
     bmi @out
     lda #20
     sta miss_cd
+    lda vmode
+    bne @vert
+    ; --- downward missile: falls, then slides along the floor ---
+    jsr @common_h
+    lda #$80                    ; 1.5 px/f down
+    sta pb_vyl,x
+    lda #1
+    sta pb_vyh,x
+    lda #PBT_MISFALL
+    sta pb_type,x
+    ; --- upward missile: rises, then slides along the ceiling ---
+    jsr pb_find_free
+    bmi @out
+    jsr @common_h
+    lda #$80                    ; 1.5 px/f up
+    sta pb_vyl,x
+    lda #$FE
+    sta pb_vyh,x
+    lda #PBT_MISRISE
+    sta pb_type,x
+    rts
+@vert:
+    ; --- one missile to each wall; both crawl upward on contact ---
+    jsr @common_v
+    lda #$FE                    ; -1.5 px/f -> left wall
+    sta pb_vxh,x
+    jsr pb_find_free
+    bmi @out
+    jsr @common_v
+    lda #$01                    ; +1.5 px/f -> right wall
+    sta pb_vxh,x
+@out:
+    rts
+@common_h:
+    lda plxh
+    clc
+    adc #4
+    sta pb_xh,x
+    lda plyh
+    clc
+    adc #4
+    sta pb_yh,x
+    lda #0
+    sta pb_xl,x
+    sta pb_yl,x
+    sta pb_vxh,x
+    lda #$C0                    ; 0.75 px/f forward
+    sta pb_vxl,x
+    rts
+@common_v:
     lda #PBT_MISFALL
     sta pb_type,x
     lda plxh
@@ -348,21 +494,16 @@ fire_missile:
     adc #4
     sta pb_xh,x
     lda plyh
-    clc
-    adc #10
     sta pb_yh,x
     lda #0
     sta pb_xl,x
     sta pb_yl,x
-    lda #$C0                    ; 0.75 px/f forward
-    sta pb_vxl,x
-    lda #0
-    sta pb_vxh,x
-    lda #$80                    ; 1.5 px/f down
+    lda #$40
     sta pb_vyl,x
-    lda #1
+    lda #$FF                    ; -0.75 px/f (up)
     sta pb_vyh,x
-@out:
+    lda #$80
+    sta pb_vxl,x
     rts
 
 ; ------------------------------------------------------------

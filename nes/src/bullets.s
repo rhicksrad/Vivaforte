@@ -14,7 +14,7 @@ pbullets_update:
     bpl @loop
     rts
 @active:
-    ; pos += vel
+    ; pos += vel (vx may be negative: wall-seeking missiles)
     lda pb_xl,x
     clc
     adc pb_vxl,x
@@ -22,7 +22,8 @@ pbullets_update:
     lda pb_xh,x
     adc pb_vxh,x
     sta pb_xh,x
-    bcs @killt                  ; wrapped past right edge
+    cmp #$02
+    bcc @killt
     cmp #$F8
     bcs @killt
     lda pb_yl,x
@@ -45,7 +46,15 @@ pbullets_update:
     cmp #PBT_MISFALL
     beq @misfall
     cmp #PBT_MISSLIDE
-    beq @misslide
+    bne :+
+    jmp @misslide
+:   cmp #PBT_MISRISE
+    bne :+
+    jmp @misrise
+:   cmp #PBT_MISSLIDEC
+    bne :+
+    jmp @misslidec
+:
 
     ; bullet / laser: die on terrain
     lda pb_yh,x
@@ -60,6 +69,8 @@ pbullets_update:
     jmp @next
 
 @misfall:
+    lda vmode
+    bne @vmisfall
     ; check ground under nose
     lda pb_yh,x
     clc
@@ -83,7 +94,37 @@ pbullets_update:
 @nextj:
     jmp @next
 
+@vmisfall:
+    ; probe the side wall we're drifting toward
+    lda pb_yh,x
+    clc
+    adc #6
+    tay
+    lda pb_vxh,x
+    bmi :+
+    lda pb_xh,x
+    clc
+    adc #6
+    bne :++
+:   lda pb_xh,x
+    clc
+    adc #1
+:   jsr terrain_solid
+    bcc @nextj
+    ; latched on: crawl up the wall
+    lda #PBT_MISSLIDE
+    sta pb_type,x
+    lda #0
+    sta pb_vxl,x
+    sta pb_vxh,x
+    sta pb_vyl,x
+    lda #$FE                    ; -2 px/f (up)
+    sta pb_vyh,x
+    jmp @next
+
 @misslide:
+    lda vmode
+    bne @vmisslide
     ; wall ahead -> explode; floor gone -> fall again
     lda pb_yh,x
     clc
@@ -93,7 +134,9 @@ pbullets_update:
     clc
     adc #9
     jsr terrain_solid
-    bcs @mboom
+    bcc :+
+    jmp @mboom
+:
     lda pb_yh,x
     clc
     adc #15
@@ -110,6 +153,70 @@ pbullets_update:
     lda #1
     sta pb_vyh,x
     jmp @next
+
+@vmisslide:
+    ; solid ahead (above) -> explode
+    lda pb_yh,x
+    tay
+    lda pb_xh,x
+    clc
+    adc #4
+    jsr terrain_solid
+    bcs @mboom
+    jmp @next
+
+@misrise:
+    ; ceiling above the nose? (horizontal stages only)
+    lda pb_yh,x
+    clc
+    adc #2
+    tay
+    lda pb_xh,x
+    clc
+    adc #4
+    jsr terrain_solid
+    bcc @nextj2
+    ; latch: slide forward along the ceiling
+    lda #PBT_MISSLIDEC
+    sta pb_type,x
+    lda #0
+    sta pb_vyl,x
+    sta pb_vyh,x
+    sta pb_vxl,x
+    lda #2
+    sta pb_vxh,x
+@nextj2:
+    jmp @next
+
+@misslidec:
+    ; wall ahead -> explode; ceiling receded -> climb to it
+    lda pb_yh,x
+    clc
+    adc #6
+    tay
+    lda pb_xh,x
+    clc
+    adc #9
+    jsr terrain_solid
+    bcs @mboomj
+    lda pb_yh,x
+    clc
+    adc #1
+    tay
+    lda pb_xh,x
+    clc
+    adc #4
+    jsr terrain_solid
+    bcs @nextj2                 ; still hugging the ceiling
+    lda #PBT_MISRISE
+    sta pb_type,x
+    lda #$80
+    sta pb_vyl,x
+    lda #$FE
+    sta pb_vyh,x
+    jmp @next
+@mboomj:
+    jmp @mboom
 @mboom:
     lda pb_xh,x
     sta tmp3
@@ -311,6 +418,38 @@ scale_dir:
     rts
 
 ; ------------------------------------------------------------
+; spawn_eb_vel — bullet from (tmp3, tmp4) with whole-pixel
+; velocity: A = vx (signed), Y = vy (signed).
+; (tmp3/tmp4 preserved; clobbers X, tmp5, tmp6)
+; ------------------------------------------------------------
+spawn_eb_vel:
+    sta tmp5
+    sty tmp6
+    ldx #NUM_EB-1
+:   lda eb_on,x
+    beq @got
+    dex
+    bpl :-
+    rts
+@got:
+    lda #1
+    sta eb_on,x
+    lda tmp3
+    sta eb_xh,x
+    lda tmp4
+    sta eb_yh,x
+    lda #0
+    sta eb_xl,x
+    sta eb_yl,x
+    sta eb_vxl,x
+    sta eb_vyl,x
+    lda tmp5
+    sta eb_vxh,x
+    lda tmp6
+    sta eb_vyh,x
+    rts
+
+; ------------------------------------------------------------
 ; capsules
 ; ------------------------------------------------------------
 spawn_capsule:
@@ -337,6 +476,8 @@ capsules_update:
 @loop:
     lda cap_on,x
     beq @next
+    lda vmode
+    bne @vert
     ; drift left at 0.5 px/f
     lda cap_sub,x
     clc
@@ -357,6 +498,28 @@ capsules_update:
     inc cap_y,x
     bne @next
 :   dec cap_y,x
+    jmp @next
+@vert:
+    ; drift down at 0.5 px/f
+    lda cap_sub,x
+    clc
+    adc #$80
+    sta cap_sub,x
+    bcc :+
+    inc cap_y,x
+:   lda cap_y,x
+    cmp #$E0
+    bcs @kill
+    ; gentle bob
+    lda frame
+    and #$0F
+    bne @next
+    lda frame
+    and #$10
+    beq :+
+    inc cap_x,x
+    bne @next
+:   dec cap_x,x
     jmp @next
 @kill:
     lda #0

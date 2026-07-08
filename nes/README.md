@@ -27,6 +27,7 @@ Any NES emulator (Mesen recommended) or real hardware via flash cart.
 | B     | Fire (hold for autofire; also launches missiles when armed) |
 | A     | Activate the selected power-up |
 | Start | Pause / start game |
+| Select | (title) start directly on stage 2, the vertical zone |
 
 ### Power meter (Gradius-style)
 
@@ -35,24 +36,52 @@ Each capsule advances the meter at the bottom of the screen:
 
 `S`peed → `M`issile → `D`ouble → `L`aser → `O`ption → `F`orce
 
-Press **A** to spend the meter on the highlighted upgrade. Options are
-trailing drones that mirror your fire; Force is a 3-hit shield. Death
-resets all power-ups, Life Force style.
+Press **A** to spend the meter on the highlighted upgrade. Missiles are
+2-way: each volley sends one hugging the floor and one the ceiling
+(in vertical zones, one crawling up each wall). Options are trailing
+drones that mirror your fire; Force is a 3-hit shield. Death resets
+all power-ups, Life Force style.
+
+## The campaign
+
+Six stages, Life Force style — odd stages scroll horizontally, even
+stages scroll **vertically** — each with its own theme, terrain,
+wave mix, and guardian:
+
+| # | Zone | Scroll | Guardian |
+|---|------|--------|----------|
+| 1 | Deep cave (blue) | horizontal | **Guardian Orb** — bobbing core, aimed spreads |
+| 2 | Volcanic canyon (red) | vertical | **Golem** — one-eyed stone head, sweeps and spits |
+| 3 | Bio cavern (green) | horizontal | **Kraken** — figure-8 squid, tentacle shots + ink jet |
+| 4 | Crystal chute (ice) | vertical | **Tetra** — fast-sweeping diamond, shard rings |
+| 5 | Fortress (gunmetal) | horizontal | **Bastion** — hunts your altitude; only vulnerable while its armor is open |
+| 6 | Final descent (violet) | vertical | **Overmind** — roaming brain, psychic rain |
+
+Difficulty ramps every stage. Clear all six and the **credits roll** —
+a victory-lap minigame: open starfield, the staff roll drifting past,
+and endless waves of capsule-carrying fans to farm for score before
+the game bows out to the title screen.
 
 ## Game structure
 
-- Scrolling cave terrain (top/bottom walls) generated from a segment table,
-  streamed into the nametables one column at a time during vblank.
-  Touching a wall is fatal.
+- Scrolling terrain generated from per-stage segment tables, streamed
+  into the nametables during vblank — one column at a time horizontally,
+  one row at a time vertically. Touching a wall is fatal.
+- The vertical scroll works on stock NROM despite the cart's vertical
+  mirroring: the play window is only 224px tall, so 16px of the nametable
+  ride hidden behind the HUD and new rows stream into that band. The HUD
+  parks in the second nametable and a mid-frame $2006/$2005/$2005/$2006
+  write after the sprite-0 split sets the Y scroll.
 - HUD (score / hi-score / lives) lives in a static strip separated from the
   scrolling playfield with a sprite-0 hit mid-frame scroll split.
-- Enemy waves come from a data table: sine-wave fans, homing darts,
-  terrain-mounted turrets (floor and ceiling) firing aimed shots, and orbs.
-- Each loop ends with a 32×32 guardian boss; killing it awards a bonus,
-  shows STAGE CLEAR, and restarts the wave table at higher difficulty
-  (faster fire rates, tougher boss).
-- APU sound: triangle bassline + noise drums + pulse-2 melody, with
-  hardware-sweep laser shots, explosions, and pickup jingles on top.
+- Enemy waves come from per-stage data tables: sine-wave fans, homing
+  darts, terrain-mounted turrets firing aimed shots, and orbs.
+- Each stage ends with a 32×32 boss driven by a per-stage movement and
+  fire-pattern dispatch. Killing it awards a bonus, shows STAGE CLEAR,
+  and moves on.
+- APU sound: three 64-step music tracks (horizontal theme, vertical
+  theme, credits theme — triangle bass, noise drums, pulse-2 melody)
+  with hardware-sweep laser shots, explosions, and pickup jingles on top.
 
 ## Source layout (`src/`)
 
@@ -75,9 +104,20 @@ resets all power-ups, Life Force style.
 
 ## Testing
 
-`test/smoke.lua` runs under the Mesen 2 test runner and verifies boot,
-title, game start, scrolling, and enemy spawns headlessly:
+Headless tests run under the Mesen 2 test runner (exit code 0 = pass):
 
 ```
 Mesen.exe --testrunner nes\build\vivaforte.nes nes\test\smoke.lua
 ```
+
+| Script | Covers |
+|--------|--------|
+| `test/smoke.lua` | boot, title, game start, scrolling, enemy spawns |
+| `test/vertical.lua` | stage 2 via SELECT: vertical mode, row streamer, Y-scroll tracking |
+| `test/transition.lua` | plays to the stage-1 boss, forces its death, verifies the STAGE CLEAR → vertical stage handoff |
+| `test/transition2.lua` | stage 2 via SELECT, reaches the Golem, verifies the vertical → horizontal stage-3 handoff |
+| `test/alllevels.lua` | full campaign: all 6 stages and bosses in order, credits minigame, return to title (with screenshots) |
+| `test/shots_v.lua` / `shots_h.lua` / `shots_m.lua` | screenshot capture aids (not pass/fail) |
+
+Zero-page addresses in the scripts come from `build/labels.txt`; regenerate
+and update them after touching `vars.s`.

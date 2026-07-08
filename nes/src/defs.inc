@@ -57,9 +57,13 @@ ST_TITLE    = 0
 ST_PLAY     = 1
 ST_GAMEOVER = 2
 ST_CLEAR    = 3
+ST_CREDITS  = 4
+
+; ---- Number of distinct stages before the loop repeats ----
+NUM_STAGES  = 6
 
 ; ---- Entity counts ----
-NUM_PB  = 10                    ; player bullets
+NUM_PB  = 12                    ; player bullets (2-way missiles need room)
 NUM_EN  = 8                     ; enemies
 NUM_EB  = 8                     ; enemy bullets
 NUM_CAP = 2                     ; power capsules
@@ -69,8 +73,10 @@ NUM_EX  = 4                     ; explosions
 PBT_NONE    = 0
 PBT_BULLET  = 1
 PBT_LASER   = 2
-PBT_MISFALL = 3                 ; missile, falling
-PBT_MISSLIDE= 4                 ; missile, sliding along floor
+PBT_MISFALL = 3                 ; missile, falling (v: seeking a wall)
+PBT_MISSLIDE= 4                 ; missile, sliding along floor (v: up a wall)
+PBT_MISRISE = 5                 ; missile, rising (h only)
+PBT_MISSLIDEC=6                 ; missile, sliding along ceiling (h only)
 
 ; ---- Enemy types ----
 ET_NONE   = 0
@@ -98,6 +104,10 @@ MTR_FORCE   = 6
 ; ---- Scroll speed: 0.75 px/frame in 8.8 ----
 SCROLL_SPD = $C0
 
+; ---- delay iterations before the final split write (vertical
+; stages), tuned so v loads during hblank of scanline 15 ----
+SPLIT_DLY = 33
+
 ; ---- BG tile indices (string chars map as tile = ascii - $20) ----
 T_BLANK  = $00
 T_ROCK   = $01
@@ -106,6 +116,8 @@ T_EDGE_T = $03                  ; top edge of floor wall
 T_STAR1  = $04
 T_STAR2  = $05
 T_DIV    = $06                  ; HUD divider line
+T_EDGE_R = $07                  ; right face of left wall (vertical stage)
+T_EDGE_L = $08                  ; left face of right wall (vertical stage)
 
 ; ---- Sprite pair -> OAM tile byte: (pair<<1)|1  (pattern table $1000) ----
 SPT_S0      = $01               ; sprite-zero hit strip
@@ -146,3 +158,19 @@ SPT_LET_T   = $51
 SPT_LET_C   = $53
 SPT_LET_P   = $55
 SPT_LET_U   = $57
+; vertical-stage art
+SPT_SHIPU_L = $59               ; up-facing ship (2 pairs)
+SPT_SHIPU_R = $5B
+SPT_LASER_V = $5D               ; vertical laser beam
+SPT_MISS_V  = $5F               ; up-pointing missile
+SPT_TURVL_L = $61               ; left-wall turret (2 pairs)
+SPT_TURVL_R = $63
+SPT_TURVR_L = $65               ; right-wall turret (2 pairs)
+SPT_TURVR_R = $67
+SPT_DARTV_L = $69               ; down-diving dart (2 pairs)
+SPT_DARTV_R = $6B
+SPT_BOSS2   = $6D               ; the Golem, stage-2 guardian (8 pairs: $6D..$7B)
+SPT_BOSS3   = $7D               ; the Kraken, stage 3 (8 pairs)
+SPT_BOSS4   = $8D               ; the Tetra, stage 4 (8 pairs)
+SPT_BOSS5   = $9D               ; the Bastion, stage 5 (8 pairs)
+SPT_BOSS6   = $AD               ; the Overmind, stage 6 (8 pairs)
